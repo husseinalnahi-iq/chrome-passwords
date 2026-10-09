@@ -1,0 +1,6 @@
+{
+  "name": "chrome-passwords",
+  "version": "1.0.0",
+  "description": "Import Chrome's exported passwords CSV into a private pane you search and copy from; Claude is blocked from reading it.",
+  "types": "./types/index.d.ts"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "chrome-passwords",
+  "owner": { "name": "chrome-passwords" },
+  "description": "The chrome-passwords Claude Code mod.",
+  "plugins": [
+    {
+      "name": "chrome-passwords",
+      "source": "./",
+      "description": "Import Chrome's exported passwords CSV into a private pane you search, group and copy from; Claude is blocked from reading it."
+    }
+  ]
+}

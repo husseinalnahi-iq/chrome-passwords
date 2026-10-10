@@ -29,6 +29,8 @@ declare module 'claude-code' {
       groupBy: GroupBy
       /** Keys of the groups the person opened; every other group is folded. */
       expanded: string[]
+      /** Id of the login whose password is on screen; '' for none. Never the password. */
+      revealed: string
     }
   }
 }

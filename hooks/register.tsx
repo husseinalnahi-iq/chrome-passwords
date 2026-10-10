@@ -34,6 +34,10 @@ const FOUND = { plugin: 'chrome-passwords', key: 'found' } as const
 let secrets = new Map<string, string>()
 let guardedPath: string | undefined
 
+const REVEALED = { plugin: 'chrome-passwords', key: 'revealed' } as const
+const REVEAL_MS = 10_000
+let revealTimer: { cancel: () => void } | undefined
+
 const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase()
 const baseName = (p: string) => norm(p).split('/').pop() ?? ''
 const CHROME_EXPORT = /chrome passwords[^"'\n]*\.csv/i
@@ -204,6 +208,7 @@ export const register: Register = on => {
     if (sub === 'forget') {
       secrets = new Map()
       guardedPath = undefined
+      await $.state.set(REVEALED, '')
       await $.store.delete(PATH_KEY)
       await $.state.set(LOGINS, [])
       return { text: 'Forgot the imported passwords. Delete the CSV file itself too if you no longer need it.' }
@@ -369,19 +374,44 @@ export const register: Register = on => {
       await $.state.set(EXPANDED, [...next])
     }
 
-    const row = (l: Login) => (
-      <Box key={`row:${l.id}`} flexDirection="row" gap={1}>
-        <Button key={`user:${l.id}`} onPress={p => void copy(p.surface, l.username, 'Username')}>
-          user
-        </Button>
-        <Button key={`pass:${l.id}`} variant="primary" onPress={p => void copyPassword(p.surface, l.id)}>
-          pass
-        </Button>
-        {groupBy !== 'health' && <Text color={STRENGTH_COLOR[l.strength]}>●</Text>}
-        <Text>{l.name}</Text>
-        <Text dimColor>{l.username}</Text>
-      </Box>
-    )
+    // At most one password is on screen at a time, for REVEAL_MS. Only its id
+    // is in state; the password itself is read from memory while drawing.
+    const revealed = (await $.state.get(REVEALED)).value ?? ''
+    const toggleReveal = async (id: string) => {
+      revealTimer?.cancel()
+      if (revealed === id) {
+        await $.state.set(REVEALED, '')
+        return
+      }
+      await ensureLoaded($)
+      await $.state.set(REVEALED, id)
+      revealTimer = $.clock.after(REVEAL_MS, () => void $.state.set(REVEALED, ''))
+    }
+
+    const row = (l: Login) => {
+      const shown = revealed === l.id ? secrets.get(l.id) : undefined
+      return (
+        <Box key={`row:${l.id}`} flexDirection="row" gap={1} flexWrap="wrap">
+          <Button key={`user:${l.id}`} onPress={p => void copy(p.surface, l.username, 'Username')}>
+            user
+          </Button>
+          <Button key={`pass:${l.id}`} variant="primary" onPress={p => void copyPassword(p.surface, l.id)}>
+            pass
+          </Button>
+          <Button key={`show:${l.id}`} plain onPress={() => void toggleReveal(l.id)}>
+            {shown === undefined ? '👁 show' : '🙈 hide'}
+          </Button>
+          {groupBy !== 'health' && <Text color={STRENGTH_COLOR[l.strength]}>●</Text>}
+          <Text>{l.name}</Text>
+          <Text dimColor>{l.username}</Text>
+          {shown !== undefined && (
+            <Text key={`pw:${l.id}`} bold color="#f59e0b">
+              {shown === '' ? '(empty password)' : shown}
+            </Text>
+          )}
+        </Box>
+      )
+    }
 
     // A search shows every match unfolded; otherwise groups open on a press.
     const groups = groupLogins(shown, groupBy)
